@@ -5,9 +5,6 @@ LLM-Powered Stock Chatbot - Uses LLM for Natural Language Processing
 
 This chatbot uses an LLM to properly understand natural language requests
 and processes stock data accordingly.
-
-Author: Stock Agent
-Created: 2025-01-22
 """
 
 import yfinance as yf
@@ -26,8 +23,8 @@ try:
     from config import *
     from api_config import API_KEY, API_URL, MODEL
 except ImportError:
-    print("❌ Configuration files not found. Please ensure config.py and api_config.py exist.")
-    sys.exit(1)
+        print("ERROR: Configuration files not found. Please ensure config.py and api_config.py exist.")
+        sys.exit(1)
 
 class LLMStockChatbot:
     """
@@ -45,17 +42,12 @@ class LLMStockChatbot:
         self.api_url = API_URL
         self.model = MODEL
         
-        # Stock data from configuration
-        self.magnificent_7 = MAGNIFICENT_7
-        self.company_mappings = COMPANY_MAPPINGS
-        self.common_words_filter = COMMON_WORDS_FILTER
-        self.yahoo_frequency_map = YAHOO_FREQUENCY_MAP
-        self.yahoo_period_map = YAHOO_PERIOD_MAP
+        # Configuration loaded - all symbol extraction and mapping now handled by LLM
         
-        print(f"🤖 {self.name} initialized!")
-        print("🧠 I use an LLM to understand your natural language requests!")
-        print("📊 I can handle stock data AND answer general questions!")
-        print("🔄 I'll stay active until you say goodbye!")
+        print(f"{self.name} initialized!")
+        print("I use an LLM to understand your natural language requests!")
+        print("I can handle stock data AND answer general questions!")
+        print("I'll stay active until you say goodbye!")
     
     def _create_directory_structure(self):
         """Create the organized directory structure for data storage."""
@@ -74,7 +66,7 @@ class LLMStockChatbot:
             full_path = self.data_dir / dir_path
             full_path.mkdir(parents=True, exist_ok=True)
         
-        print(f"📁 Data directories ready in {self.data_dir}")
+        print(f" Data directories ready in {self.data_dir}")
     
     def _call_llm(self, prompt, system_prompt=None):
         """Call the LLM to process natural language."""
@@ -103,7 +95,7 @@ class LLMStockChatbot:
             return result['choices'][0]['message']['content']
             
         except Exception as e:
-            print(f"❌ LLM Error: {e}")
+            print(f"ERROR: LLM Error: {e}")
             return None
     
     def _parse_request_with_llm(self, user_input):
@@ -194,7 +186,7 @@ Return only the JSON response:"""
             return parsed_request
             
         except json.JSONDecodeError as e:
-            print(f"❌ Failed to parse LLM response as JSON: {e}")
+            print(f"ERROR: Failed to parse LLM response as JSON: {e}")
             print(f"LLM Response: {llm_response}")
             return None
     
@@ -365,19 +357,19 @@ Return ONLY the period code (e.g., "1mo", "1y", etc.):"""
             if hist.empty:
                 # Check if it's a minute data limitation
                 if data_frequency in ['minute', 'hourly']:
-                    print(f"❌ No {data_frequency} data found for {symbol}")
-                    print(f"💡 Note: {data_frequency} data is only available for the last 30 days")
+                    print(f"ERROR: No {data_frequency} data found for {symbol}")
+                    print(f"Note: Note: {data_frequency} data is only available for the last 30 days")
                 else:
-                    print(f"❌ No data found for {symbol}")
+                    print(f"ERROR: No data found for {symbol}")
                 return None
             
             return hist
             
         except Exception as e:
-            print(f"❌ Error fetching data for {symbol}: {e}")
+            print(f"ERROR: Error fetching data for {symbol}: {e}")
             # Check for specific Yahoo Finance error messages
             if "not available" in str(e) and "30 days" in str(e):
-                print(f"💡 Note: {data_frequency} data is only available for the last 30 days")
+                print(f"Note: Note: {data_frequency} data is only available for the last 30 days")
             return None
     
     def _save_data(self, symbol, data, data_type, time_frame, data_frequency):
@@ -423,13 +415,13 @@ Return ONLY the period code (e.g., "1mo", "1y", etc.):"""
         
         # Check for existing file
         if file_path.exists():
-            print(f"⚠️  File already exists: {file_path}")
+            print(f"WARNING:  File already exists: {file_path}")
             while True:
                 response = input("Replace it? (y/n): ").lower().strip()
                 if response in ['y', 'yes']:
                     break
                 elif response in ['n', 'no']:
-                    print("❌ Skipping this file.")
+                    print("ERROR: Skipping this file.")
                     return False
                 else:
                     print("Please enter 'y' for yes or 'n' for no.")
@@ -439,25 +431,25 @@ Return ONLY the period code (e.g., "1mo", "1y", etc.):"""
         save_data['Date'] = save_data['Date'].dt.strftime('%Y-%m-%d')
         save_data.to_csv(file_path, index=False)
         
-        print(f"✅ Data saved to: {file_path}")
-        print(f"📊 Records: {len(save_data)}")
+        print(f"SUCCESS: Data saved to: {file_path}")
+        print(f" Records: {len(save_data)}")
         return True
     
     def _process_stock_request_with_llm(self, user_input):
         """Process stock request using LLM for natural language understanding."""
-        print(f"\n🔍 Processing with LLM: '{user_input}'")
+        print(f"\nProcessing with LLM: '{user_input}'")
         print("=" * 60)
         
         # Use LLM to parse the request
         parsed_request = self._parse_request_with_llm(user_input)
         
         if not parsed_request:
-            print("❌ Failed to parse request with LLM.")
+            print("ERROR: Failed to parse request with LLM.")
             return False
         
         # Check if clarification is needed
         if parsed_request.get('clarification_needed'):
-            print(f"🤔 {parsed_request.get('clarification_message', 'I need clarification.')}")
+            print(f" {parsed_request.get('clarification_message', 'I need clarification.')}")
             return False
         
         # Extract information from parsed request
@@ -467,19 +459,19 @@ Return ONLY the period code (e.g., "1mo", "1y", etc.):"""
         is_multiple_files = parsed_request.get('is_multiple_files', False)
         
         if not symbols:
-            print("❌ Could not identify any stock symbols.")
+            print("ERROR: Could not identify any stock symbols.")
             return False
         
         # Show what the LLM understood
-        print(f"🧠 LLM understood:")
-        print(f"   • Symbols: {', '.join(symbols)}")
+        print(f" LLM understood:")
+        print(f"   - Symbols: {', '.join(symbols)}")
         if time_frame.get('start_date') and time_frame.get('end_date'):
-            print(f"   • Date Range: {time_frame['start_date']} to {time_frame['end_date']}")
+            print(f"   - Date Range: {time_frame['start_date']} to {time_frame['end_date']}")
         if time_frame.get('data_frequencies'):
-            print(f"   • Frequencies: {', '.join(time_frame['data_frequencies'])}")
-        print(f"   • Data Type: {data_type}")
+            print(f"   - Frequencies: {', '.join(time_frame['data_frequencies'])}")
+        print(f"   - Data Type: {data_type}")
         if is_multiple_files:
-            print(f"   • Multiple Files: Yes")
+            print(f"   - Multiple Files: Yes")
         
         # Ask for confirmation
         while True:
@@ -487,7 +479,7 @@ Return ONLY the period code (e.g., "1mo", "1y", etc.):"""
             if response in ['y', 'yes']:
                 break
             elif response in ['n', 'no']:
-                print("❌ Request cancelled.")
+                print("ERROR: Request cancelled.")
                 return False
             else:
                 print("Please enter 'y' for yes or 'n' for no.")
@@ -498,7 +490,7 @@ Return ONLY the period code (e.g., "1mo", "1y", etc.):"""
         
         if is_multiple_files:
             # Handle multiple files - need to create separate requests
-            print(f"\n🔄 Processing as multiple files...")
+            print(f"\n Processing as multiple files...")
             
             # If we have multiple years, create separate time frames for each
             years = []
@@ -537,7 +529,7 @@ Return ONLY the period code (e.g., "1mo", "1y", etc.):"""
                             'data_frequencies': [data_frequency]
                         }
                         
-                        print(f"\n📡 Fetching {data_frequency} data for {symbol} ({year})...")
+                        print(f"\n Fetching {data_frequency} data for {symbol} ({year})...")
                         total_files += 1
                         
                         # Fetch data
@@ -563,7 +555,7 @@ Return ONLY the period code (e.g., "1mo", "1y", etc.):"""
                 frequencies = time_frame.get('data_frequencies', ['daily'])
                 
                 for data_frequency in frequencies:
-                    print(f"\n📡 Fetching {data_frequency} data for {symbol}...")
+                    print(f"\n Fetching {data_frequency} data for {symbol}...")
                     total_files += 1
                     
                     # Fetch data
@@ -585,13 +577,13 @@ Return ONLY the period code (e.g., "1mo", "1y", etc.):"""
                         success_count += 1
         
         if success_count > 0:
-            print(f"\n🎉 Successfully processed {success_count}/{total_files} file(s)!")
+            print(f"\n Successfully processed {success_count}/{total_files} file(s)!")
         
         return success_count > 0
     
     def _handle_stock_analysis_request(self, user_input):
         """Handle stock analysis requests using LLM."""
-        print(f"\n🔍 Processing stock analysis: '{user_input}'")
+        print(f"\nProcessing stock analysis: '{user_input}'")
         print("=" * 60)
         
         # Get current date for LLM context
@@ -601,7 +593,7 @@ Return ONLY the period code (e.g., "1mo", "1y", etc.):"""
         # Extract symbols from the request using LLM
         symbols = self._extract_symbols_with_llm(user_input)
         if not symbols:
-            return "❌ Could not identify any stock symbols in your analysis request."
+            return "ERROR: Could not identify any stock symbols in your analysis request."
         
         # Get current stock data
         stock_info = []
@@ -682,7 +674,7 @@ Keep it concise but informative (2-3 paragraphs max)."""
         
         if llm_analysis:
             # Format the response nicely
-            response = f"📊 **Stock Analysis for {', '.join(symbols)}**\n\n"
+            response = f" **Stock Analysis for {', '.join(symbols)}**\n\n"
             
             # Add current data summary
             for stock in stock_info:
@@ -690,16 +682,16 @@ Keep it concise but informative (2-3 paragraphs max)."""
                     response += f"**{stock['symbol']} ({stock['name']})**: "
                     response += f"${stock['current_price']:.2f} "
                     if stock['change'] >= 0:
-                        response += f"📈 +${stock['change']:.2f} (+{stock['change_percent']:.2f}%)\n"
+                        response += f" +${stock['change']:.2f} (+{stock['change_percent']:.2f}%)\n"
                     else:
-                        response += f"📉 ${stock['change']:.2f} ({stock['change_percent']:.2f}%)\n"
+                        response += f"-${abs(stock['change']):.2f} ({stock['change_percent']:.2f}%)\n"
                 else:
-                    response += f"**{stock['symbol']}**: ❌ {stock['error']}\n"
+                    response += f"**{stock['symbol']}**: ERROR: {stock['error']}\n"
             
-            response += f"\n🤖 **AI Analysis:**\n{llm_analysis.strip()}"
+            response += f"\n **AI Analysis:**\n{llm_analysis.strip()}"
             return response
         else:
-            return "❌ Sorry, I couldn't analyze the stock data right now. Please try again."
+            return "ERROR: Sorry, I couldn't analyze the stock data right now. Please try again."
     
     def _generate_chat_response(self, user_input):
         """Generate a chatbot response for general chat using LLM."""
@@ -707,41 +699,41 @@ Keep it concise but informative (2-3 paragraphs max)."""
         
         # Greeting responses
         if any(word in user_input_lower for word in ['hello', 'hi', 'hey', 'good morning', 'good afternoon', 'good evening']):
-            return "👋 Hello! I'm your LLM-Powered Stock Data Chatbot! I can help with stock data AND answer general questions using AI!"
+            return " Hello! I'm your LLM-Powered Stock Data Chatbot! I can help with stock data AND answer general questions using AI!"
         
         # Help responses
         if any(word in user_input_lower for word in ['help', 'what can you do', 'how', 'examples']):
-            return """🤖 I'm an LLM-Powered Chatbot! Here's what I can do:
+            return """ I'm an LLM-Powered Chatbot! Here's what I can do:
 
-📊 **Stock Data Processing:**
-• "Apple and Microsoft weekly 2019-2021"
-• "magnificent 7 last year daily data"
-• "TSLA from 2020 to 2023 monthly"
+ **Stock Data Processing:**
+- "Apple and Microsoft weekly 2019-2021"
+- "magnificent 7 last year daily data"
+- "TSLA from 2020 to 2023 monthly"
 
-🧠 **General Questions (NEW!):**
-• "What is the weather like today?"
-• "What is the 13th amendment?"
-• Any general knowledge questions
+ **General Questions (NEW!):**
+- "What is the weather like today?"
+- "What is the 13th amendment?"
+- Any general knowledge questions
 
-💡 **Features:**
-• Uses LLM for both stock data AND general questions
-• Handles company names and symbols
-• Multiple symbols and timeframes
-• Essential data storage (price, volume, etc.)
-• Actually processes your requests!
+Note: **Features:**
+- Uses LLM for both stock data AND general questions
+- Handles company names and symbols
+- Multiple symbols and timeframes
+- Essential data storage (price, volume, etc.)
+- Actually processes your requests!
 
 Just ask me anything - stock data or general questions!"""
         
         # Thank you responses
         if any(word in user_input_lower for word in ['thank', 'thanks', 'appreciate']):
-            return "😊 You're welcome! I'm here to help with stock data AND general questions using AI!"
+            return "You're welcome! I'm here to help with stock data AND general questions using AI!"
         
         # For general questions, use LLM to answer
         return self._answer_general_question(user_input)
     
     def _answer_general_question(self, user_input):
         """Use LLM to answer general questions."""
-        print(f"\n🧠 Processing general question with LLM...")
+        print(f"\n Processing general question with LLM...")
         
         user_input_lower = user_input.lower()
         
@@ -752,7 +744,7 @@ Just ask me anything - stock data or general questions!"""
             date_str = now.strftime("%A, %B %d, %Y")
             time_str = now.strftime("%I:%M %p")
             
-            return f"🤔 **General Question Answer:**\nToday is {date_str}\nThe current time is {time_str}"
+            return f" **General Question Answer:**\nToday is {date_str}\nThe current time is {time_str}"
         
         system_prompt = """You are a helpful AI assistant. Answer the user's question clearly and concisely. 
         Keep responses informative but not too long. If it's a factual question, provide accurate information.
@@ -765,43 +757,43 @@ Provide a clear, helpful response:"""
         llm_response = self._call_llm(prompt, system_prompt)
         
         if llm_response:
-            return f"🤔 **General Question Answer:**\n{llm_response.strip()}"
+            return f" **General Question Answer:**\n{llm_response.strip()}"
         else:
-            return "❌ Sorry, I couldn't process that question right now. Please try again or ask me about stock data!"
+            return "ERROR: Sorry, I couldn't process that question right now. Please try again or ask me about stock data!"
     
     def chat(self):
         """Main chatbot loop."""
-        print(f"\n🤖 {self.name} - Chat Mode")
+        print(f"\n {self.name} - Chat Mode")
         print("=" * 50)
-        print("💬 Hi! I'm your LLM-Powered Chatbot!")
-        print("🧠 I can handle stock data AND answer general questions!")
-        print("🔄 I'll stay active until you say goodbye!")
-        print("\n💡 **Examples of what I can do:**")
-        print("📊 **Stock Data Download:**")
-        print("   • \"Apple and Microsoft weekly 2019-2021\"")
-        print("   • \"magnificent 7 last year daily data\"")
-        print("   • \"TSLA from 2020 to 2023 monthly\"")
-        print("📈 **Stock Analysis (NEW!):**")
-        print("   • \"What does Apple stock look like today?\"")
-        print("   • \"How is Tesla performing?\"")
-        print("   • \"Compare Apple and Microsoft\"")
-        print("🧠 **General Questions:**")
-        print("   • \"What is the weather like today?\"")
-        print("   • \"What is the 13th amendment?\"")
-        print("   • \"Hello!\" (for general chat)")
+        print(" Hi! I'm your LLM-Powered Chatbot!")
+        print(" I can handle stock data AND answer general questions!")
+        print(" I'll stay active until you say goodbye!")
+        print("\nNote: **Examples of what I can do:**")
+        print(" **Stock Data Download:**")
+        print("   - \"Apple and Microsoft weekly 2019-2021\"")
+        print("   - \"magnificent 7 last year daily data\"")
+        print("   - \"TSLA from 2020 to 2023 monthly\"")
+        print(" **Stock Analysis (NEW!):**")
+        print("   - \"What does Apple stock look like today?\"")
+        print("   - \"How is Tesla performing?\"")
+        print("   - \"Compare Apple and Microsoft\"")
+        print(" **General Questions:**")
+        print("   - \"What is the weather like today?\"")
+        print("   - \"What is the 13th amendment?\"")
+        print("   - \"Hello!\" (for general chat)")
         print("\nType 'quit', 'exit', or 'goodbye' to end our conversation.")
         print()
         
         while True:
             try:
-                user_input = input("🤖 LLM Stock Bot> ").strip()
+                user_input = input(" LLM Stock Bot> ").strip()
                 
                 if not user_input:
                     continue
                 
                 # Check for exit commands
                 if user_input.lower() in ['quit', 'exit', 'bye', 'goodbye', 'stop', 'end']:
-                    print("👋 Goodbye! Thanks for using the LLM Stock Data Chatbot!")
+                    print(" Goodbye! Thanks for using the LLM Stock Data Chatbot!")
                     break
                 
                 # Check if it's a stock data request
@@ -819,13 +811,13 @@ Provide a clear, helpful response:"""
                 print()  # Add blank line for readability
                 
             except KeyboardInterrupt:
-                print("\n👋 Goodbye! Thanks for using the LLM Stock Data Chatbot!")
+                print("\n Goodbye! Thanks for using the LLM Stock Data Chatbot!")
                 break
             except EOFError:
-                print("\n👋 Input closed. Goodbye!")
+                print("\n Input closed. Goodbye!")
                 break
             except Exception as e:
-                print(f"❌ Error: {e}")
+                print(f"ERROR: Error: {e}")
 
 def main():
     """Main function."""
@@ -841,8 +833,8 @@ def main():
         if chatbot._is_stock_data_request(args.request):
             chatbot._process_stock_request_with_llm(args.request)
         else:
-            print("❌ That doesn't appear to be a stock data request.")
-            print("💡 Try something like: 'Apple and Microsoft weekly 2019-2021'")
+            print("ERROR: That doesn't appear to be a stock data request.")
+            print("Note: Try something like: 'Apple and Microsoft weekly 2019-2021'")
     elif args.chat:
         chatbot.chat()
     else:

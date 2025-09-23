@@ -1,33 +1,33 @@
-# 🤖 LLM-Powered Stock Agent Chatbot
+# LLM-Powered Stock Agent Chatbot
 
-An intelligent stock analysis chatbot that uses Large Language Models (LLM) for natural language processing to provide real-time stock data, analysis, and general question answering.
+An intelligent stock analysis chatbot that uses Large Language Models (LLM) for natural language processing to provide real-time stock data saving, analysis, and general question answering.
 
-## ✨ Features
+## Features
 
-### 🧠 **LLM-Driven Intelligence**
+### **LLM-Driven Intelligence**
 - **Natural Language Understanding**: Uses Claude 3.5 Sonnet for intelligent request parsing
 - **Smart Symbol Extraction**: Automatically converts company names and handles misspellings
 - **Intent Detection**: Intelligently classifies requests (analysis, data download, general questions)
 - **Dynamic Date Handling**: Understands relative dates like "today", "last year", "up to today"
 
-### 📊 **Stock Analysis**
+### **Stock Analysis**
 - **Real-time Stock Data**: Current prices, changes, volume, market cap, P/E ratios
-- **AI-Powered Insights**: Intelligent analysis of stock performance and market context
+- **AI-Powered Insights**: analysis of stock performance and market context
 - **Multi-symbol Support**: Analyze multiple stocks simultaneously
-- **Error-Free Output**: Clean, professional responses without API error spam
+- **TIMEOUT-Free Output**: responses without API error spam
 
-### 📈 **Historical Data Download**
+### **Historical Data Download**
 - **Flexible Time Ranges**: Daily, weekly, monthly, yearly data
 - **Smart File Management**: Organized storage with automatic file naming
 - **Multiple Outputs**: Handle "and" vs "to" logic for separate files vs date ranges
 - **Data Validation**: 30-day limitation handling for minute/hourly data
 
-### 💬 **General Question Answering**
-- **Broad Knowledge**: Answer questions beyond stock data
-- **Current Date/Time**: Real-time date and time information
-- **Conversational**: Natural chat interface
+### **General Question Answering**
+- **Broad Scope**: Answer questions beyond stock
+- **Current Date/Time**: Real-time date and time information to verify
+- **Conversational**: chat with AI!
 
-## 🚀 Quick Start
+## Quick Start
 
 ### Prerequisites
 - Python 3.8+
@@ -46,18 +46,84 @@ An intelligent stock analysis chatbot that uses Large Language Models (LLM) for 
    pip install -r requirements.txt
    ```
 
-3. **Configure API access**
-   ```bash
-   # Create api_config.py with your API key
-   echo 'API_KEY = "your_openrouter_api_key_here"' > api_config.py
-   ```
+3. **Configure API access** (See detailed setup below)
 
 4. **Run the chatbot**
    ```bash
    python comprehensive_stock_chatbot.py --chat
    ```
 
-## 📖 Usage Examples
+## Detailed Setup Guide
+
+### Step 1: Get Your API Key
+1. Go to [OpenRouter.ai](https://openrouter.ai/)
+2. Sign up for an account (it's free)
+3. Go to your account settings/dashboard
+4. Find your API key (starts with `sk-or-v1-`)
+5. Copy it - you'll need it in the next step
+
+### Step 2: Create Configuration Files
+
+#### Option A: Easy Method (Copy Template)
+1. Copy the template file:
+   ```bash
+   cp api_config_template.py api_config.py
+   ```
+2. Open `api_config.py` in any editor
+3. Replace `"your_openrouter_api_key_here"` with your actual API key:
+   ```python
+   API_KEY = "sk-or-v1-your-actual-key-goes-here"
+   ```
+4. Save the file
+
+#### Option B: Manual Method
+1. Create a new file called `api_config.py` in the project folder
+2. Add these lines to the file:
+   ```python
+   #!/usr/bin/env python3
+   """
+   API Configuration for Stock Agent Chatbot
+   """
+
+   # OpenRouter API Key
+   API_KEY = "sk-or-v1-your-actual-key-goes-here"
+   API_URL = "https://openrouter.ai/api/v1/chat/completions"
+   MODEL = "anthropic/claude-3.5-sonnet"
+   ```
+3. Replace `"sk-or-v1-your-actual-key-goes-here"` with your real API key
+4. Save the file
+
+### Step 3: Verify Setup
+Run this command to test if everything is working:
+```bash
+python setup.py
+```
+
+If you see "Setup complete!" you're ready to go!
+
+### Step 4: Run the Chatbot
+```bash
+python comprehensive_stock_chatbot.py --chat
+```
+
+### Troubleshooting
+
+**Error: "Configuration files not found"**
+- Make sure you created `api_config.py` in the correct folder
+- Check that the file has the correct name (no typos)
+
+**Error: "API_KEY not found"**
+- Make sure your API key is in quotes: `"sk-or-v1-..."`
+- Don't include any extra spaces or characters
+
+**Error: "No module named 'yfinance'"**
+- Run: `pip install -r requirements.txt`
+
+**The chatbot starts but doesn't respond to questions**
+- Check your API key is valid at [OpenRouter.ai](https://openrouter.ai/)
+- Make sure you have credits/usage available
+
+## Usage Examples
 
 ### Stock Analysis
 ```bash
@@ -90,49 +156,28 @@ An intelligent stock analysis chatbot that uses Large Language Models (LLM) for 
 "What is the 13th amendment?"
 ```
 
-## 🏗️ Architecture
-
-### LLM-Driven Design
-- **No Hardcoding**: All symbol extraction, frequency mapping, and intent detection uses LLM
-- **Dynamic Configuration**: Handles new companies, misspellings, and variations automatically
-- **Context-Aware**: Understands current date and relative time references
-
-### Configuration System
-- **Secure**: API keys in separate config files (gitignored)
-- **Modular**: Clean separation of configuration and logic
-- **Extensible**: Easy to add new features and mappings
-
 ### Data Organization
 ```
 data/
-├── daily/
-│   ├── opening/
-│   │   └── [SYMBOL]/
-│   │       └── [FILENAME].csv
-│   └── closing/
-│       └── [SYMBOL]/
-│           └── [FILENAME].csv
-├── weekly/
-├── monthly/
-└── yearly/
-```
-
-## 🔧 Configuration
-
-### API Configuration (`api_config.py`)
-```python
-API_KEY = "your_openrouter_api_key_here"
-API_URL = "https://openrouter.ai/api/v1/chat/completions"
-MODEL = "anthropic/claude-3.5-sonnet"
+daily/
+opening/
+    [SYMBOL]/
+        [FILENAME].csv
+closing/
+    [SYMBOL]/
+        [FILENAME].csv
+weekly/
+monthly/
+yearly/
 ```
 
 ### General Configuration (`config.py`)
-- Stock symbols and mappings
-- Yahoo Finance interval mappings
+- Data directory settings
 - File naming conventions
-- Common words filters
+- API validation
+- Minimal essential configuration only
 
-## 🧪 Testing
+## Testing
 
 ```bash
 # Test stock analysis
@@ -145,54 +190,26 @@ echo -e "apple daily data 2024\ny\ngoodbye" | python comprehensive_stock_chatbot
 echo "what date is it today" | python comprehensive_stock_chatbot.py --chat
 ```
 
-## 🛡️ Security
-
-- **API Keys**: Stored in gitignored configuration files
-- **Sensitive Data**: All sensitive information excluded from version control
-- **Error Suppression**: Clean output without exposing API errors
-
-## 📁 Project Structure
+## Project Structure
 
 ```
 stock-agent-chatbot/
-├── comprehensive_stock_chatbot.py  # Main chatbot application
-├── config.py                       # General configuration
-├── api_config.py                   # API configuration (gitignored)
-├── agent_instruction.txt           # Core requirements
-├── requirements.txt                # Python dependencies
-├── README.md                       # This file
-├── .gitignore                      # Git ignore rules
-└── data/                          # Stock data storage (gitignored)
+comprehensive_stock_chatbot.py  # Main chatbot application
+config.py                       # General configuration (personal)
+api_config.py                   # API configuration (personal)
+requirements.txt                # Python dependencies
+README.md                       # This file
+.gitignore                      # Git ignore rules
+data/                          # Stock data storage (personal)
 ```
 
-## 🔄 Key Improvements Over Traditional Approaches
+## Key Improvements Over Traditional Approaches
 
 1. **LLM vs Hardcoding**: Dynamic understanding vs static keyword matching
-2. **Error-Free Output**: Suppressed API errors for clean user experience
-3. **Smart Date Handling**: Dynamic current date awareness
-4. **Flexible Symbol Extraction**: Handles misspellings and variations
-5. **Intent Classification**: Intelligent request routing
-6. **Secure Configuration**: Proper separation of sensitive data
+2. **Date Handling**: Dynamic current date awareness
+3. **Flexible Symbol Extraction**: Handles misspellings and variations intelligently
+4. **Intent Classification**: Intelligent request routing
 
-## 🤝 Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Test thoroughly
-5. Submit a pull request
-
-## 📄 License
+## License
 
 This project is licensed under the MIT License - see the LICENSE file for details.
-
-## 🆘 Support
-
-For issues and questions:
-1. Check the existing issues
-2. Create a new issue with detailed description
-3. Include error logs and configuration details
-
----
-
-**Built with ❤️ using LLM intelligence for truly natural language stock analysis**

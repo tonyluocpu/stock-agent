@@ -3,6 +3,7 @@ api_config.py
 .env
 *.env
 config_local.py
+agent_instruction.txt
 
 # Data Files
 data/
