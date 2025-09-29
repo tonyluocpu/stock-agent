@@ -17,14 +17,17 @@ from datetime import datetime, timedelta
 from pathlib import Path
 import argparse
 import sys
+import polars as pl
+from typing import Dict
 
 # Import configuration
 try:
     from config import *
     from api_config import API_KEY, API_URL, MODEL
+    from evaluation_module import StockDataEvaluator, WebScrapingValidator
 except ImportError:
-        print("ERROR: Configuration files not found. Please ensure config.py and api_config.py exist.")
-        sys.exit(1)
+    print("ERROR: Configuration files not found. Please ensure config.py and api_config.py exist.")
+    sys.exit(1)
 
 class LLMStockChatbot:
     """
@@ -42,11 +45,16 @@ class LLMStockChatbot:
         self.api_url = API_URL
         self.model = MODEL
         
+        # Initialize evaluation module for second layer features
+        self.evaluator = StockDataEvaluator()
+        self.web_scraping_validator = WebScrapingValidator()
+        
         # Configuration loaded - all symbol extraction and mapping now handled by LLM
         
         print(f"{self.name} initialized!")
         print("I use an LLM to understand your natural language requests!")
         print("I can handle stock data AND answer general questions!")
+        print("Second layer evaluation features are now active!")
         print("I'll stay active until you say goodbye!")
     
     def _create_directory_structure(self):
@@ -375,7 +383,7 @@ Return ONLY the period code (e.g., "1mo", "1y", etc.):"""
     def _save_data(self, symbol, data, data_type, time_frame, data_frequency):
         """Save data with essential information."""
         if data is None:
-            return False
+            return False, None
         
         # Select essential data columns (up to 5 items)
         essential_columns = ['Open', 'High', 'Low', 'Close', 'Volume']
@@ -422,7 +430,7 @@ Return ONLY the period code (e.g., "1mo", "1y", etc.):"""
                     break
                 elif response in ['n', 'no']:
                     print("ERROR: Skipping this file.")
-                    return False
+                    return False, None
                 else:
                     print("Please enter 'y' for yes or 'n' for no.")
         
@@ -433,8 +441,62 @@ Return ONLY the period code (e.g., "1mo", "1y", etc.):"""
         
         print(f"SUCCESS: Data saved to: {file_path}")
         print(f" Records: {len(save_data)}")
-        return True
-    
+        
+        # Second layer evaluation
+        print("\nRunning second layer evaluation...")
+        evaluation_results = self.evaluator.evaluate_data_file(str(file_path), data_frequency)
+        
+        # Generate and display evaluation report
+        report = self.evaluator.generate_evaluation_report(evaluation_results)
+        print(report)
+        
+        # Save evaluation report
+        report_path = file_path.parent / f"{file_path.stem}_evaluation_report.txt"
+        with open(report_path, 'w') as f:
+            f.write(report)
+        print(f"Evaluation report saved to: {report_path}")
+        
+        # Run web-scraping validation if initial evaluation passed or user agreed to proceed
+        if evaluation_results['overall_status'] == 'passed':
+            print("\nInitial evaluation passed. Running web-scraping validation...")
+            self._run_web_scraping_validation(symbol, str(file_path), time_frame, data_frequency)
+        elif evaluation_results['overall_status'] == 'issues_found':
+            print("\nIssues found in initial evaluation. Checking if user wants to proceed with web-scraping validation...")
+            user_choice = input("Do you want to proceed with web-scraping validation despite the issues? (y/n): ").lower().strip()
+            if user_choice in ['y', 'yes']:
+                self._run_web_scraping_validation(symbol, str(file_path), time_frame, data_frequency)
+            else:
+                print("Skipping web-scraping validation as requested.")
+        
+        return True, file_path
+
+    def _run_web_scraping_validation(self, symbol: str, file_path: str, time_frame: Dict, data_frequency: str):
+        """Run web-scraping validation and handle user decisions."""
+        try:
+            validation_result = self.web_scraping_validator.validate_with_investpy(
+                symbol, file_path, time_frame, data_frequency
+            )
+            
+            if validation_result['status'] == 'regenerate':
+                print(f"\nUser requested data regeneration for {symbol}.")
+                print("This would require returning to first layer to regenerate data.")
+                # In a full implementation, you would trigger data regeneration here
+                return False
+            elif validation_result['status'] == 'continue':
+                print(f"\nUser chose to continue despite validation failure in {validation_result['component_name']}")
+                return True
+            elif validation_result['status'] == 'success':
+                print(f"\nWeb-scraping validation completed successfully for {symbol}!")
+                return True
+            else:
+                print(f"\nUnexpected validation result: {validation_result['status']}")
+                return False
+                
+        except Exception as e:
+            print(f"\nError during web-scraping validation: {str(e)}")
+            print("Continuing with original data...")
+            return True
+
     def _process_stock_request_with_llm(self, user_input):
         """Process stock request using LLM for natural language understanding."""
         print(f"\nProcessing with LLM: '{user_input}'")
@@ -539,12 +601,16 @@ Return ONLY the period code (e.g., "1mo", "1y", etc.):"""
                         
                         # Save data
                         if data_type == "opening":
-                            success = self._save_data(symbol, data, "opening", year_time_frame, data_frequency)
+                            success, file_path = self._save_data(symbol, data, "opening", year_time_frame, data_frequency)
+                            if success:
+                                pass
                         elif data_type == "closing":
-                            success = self._save_data(symbol, data, "closing", year_time_frame, data_frequency)
+                            success, file_path = self._save_data(symbol, data, "closing", year_time_frame, data_frequency)
+                            if success:
+                                pass
                         else:  # both
-                            success1 = self._save_data(symbol, data, "opening", year_time_frame, data_frequency)
-                            success2 = self._save_data(symbol, data, "closing", year_time_frame, data_frequency)
+                            success1, file_path1 = self._save_data(symbol, data, "opening", year_time_frame, data_frequency)
+                            success2, file_path2 = self._save_data(symbol, data, "closing", year_time_frame, data_frequency)
                             success = success1 and success2
                         
                         if success:
@@ -565,12 +631,12 @@ Return ONLY the period code (e.g., "1mo", "1y", etc.):"""
                     
                     # Save data
                     if data_type == "opening":
-                        success = self._save_data(symbol, data, "opening", time_frame, data_frequency)
+                        success, file_path = self._save_data(symbol, data, "opening", time_frame, data_frequency)
                     elif data_type == "closing":
-                        success = self._save_data(symbol, data, "closing", time_frame, data_frequency)
+                        success, file_path = self._save_data(symbol, data, "closing", time_frame, data_frequency)
                     else:  # both
-                        success1 = self._save_data(symbol, data, "opening", time_frame, data_frequency)
-                        success2 = self._save_data(symbol, data, "closing", time_frame, data_frequency)
+                        success1, file_path1 = self._save_data(symbol, data, "opening", time_frame, data_frequency)
+                        success2, file_path2 = self._save_data(symbol, data, "closing", time_frame, data_frequency)
                         success = success1 and success2
                     
                     if success:

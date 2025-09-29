@@ -27,6 +27,27 @@ An intelligent stock analysis chatbot that uses Large Language Models (LLM) for 
 - **Current Date/Time**: Real-time date and time information to verify
 - **Conversational**: chat with AI!
 
+### **Data Evaluation** 🆕
+- **Price Logic Validation**: Ensures opening ≤ high and closing ≤ high for all data points
+- **Frequency Validation**: Verifies correct intervals between data points (daily, weekly, monthly, yearly)
+- **Trading Day Verification**: Uses web search to confirm non-trading days (weekends, holidays)
+- **Web-Scraping Validation**: Cross-validates data accuracy using investpy library
+- **Comprehensive Reporting**: Generates detailed evaluation reports for data quality assurance
+- **User Decision Support**: Allows users to proceed or regenerate data based on validation results
+
+#### **Evaluation Components:**
+1. **Initial Evaluation** (Local):
+   - Price logic checks using Polars for high-performance data processing
+   - Frequency interval validation with holiday/weekend awareness
+   - Trading day verification using web search APIs
+
+2. **Web-Scraping Validation** (External):
+   - Symbol and IPO date validation
+   - Row count matching (exact trading day counts)
+   - Volume data validation (2% tolerance)
+   - Price data validation (0.8% tolerance for opening/high/closing prices)
+   - Random sampling (10% of entries) for statistical accuracy
+
 ## Quick Start
 
 ### Prerequisites
@@ -156,6 +177,12 @@ python comprehensive_stock_chatbot.py --chat
 "What is the 13th amendment?"
 ```
 
+### Data Evaluation Features
+```bash
+# Automatic evaluation runs after data download
+"Apple weekly data from 2020 to 2023"  # Triggers evaluation automatically
+```
+
 ### Data Organization
 ```
 data/
@@ -195,7 +222,8 @@ echo "what date is it today" | python comprehensive_stock_chatbot.py --chat
 ```
 stock-agent-chatbot/
 comprehensive_stock_chatbot.py  # Main chatbot application
-config.py                       # General configuration (personal)
+evaluation_module.py            # data validation features
+config.py                       # General configuration direction
 api_config.py                   # API configuration (personal)
 requirements.txt                # Python dependencies
 README.md                       # This file
@@ -209,6 +237,8 @@ data/                          # Stock data storage (personal)
 2. **Date Handling**: Dynamic current date awareness
 3. **Flexible Symbol Extraction**: Handles misspellings and variations intelligently
 4. **Intent Classification**: Intelligent request routing
+5. **Multi-Layer Data Validation**: Comprehensive quality assurance with local and external validation
+6. **Statistical Accuracy**: Random sampling and tolerance-based validation for data integrity
 
 ## License
 

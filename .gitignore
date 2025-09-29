@@ -3,7 +3,11 @@ api_config.py
 .env
 *.env
 config_local.py
-agent_instruction.txt
+agent_instruction_first_layer.txt
+agent_instruction_second_layer.txt
+agent_instruction_third_layer.txt
+test_agent.txt
+
 
 # Data Files
 data/
@@ -78,3 +82,6 @@ htmlcov/
 .coverage
 .coverage.*
 coverage.xml
+
+# Test directory
+tests/
