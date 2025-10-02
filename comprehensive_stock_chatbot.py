@@ -1,12 +1,4 @@
 #!/usr/bin/env python3
-"""
-LLM-Powered Stock Chatbot - Uses LLM for Natural Language Processing
-================================================================
-
-This chatbot uses an LLM to properly understand natural language requests
-and processes stock data accordingly.
-"""
-
 import yfinance as yf
 import pandas as pd
 import os
@@ -86,7 +78,7 @@ class LLMStockChatbot:
         context_entry = {
             'user_input': user_input,
             'bot_response': bot_response,
-            'request_type': request_type,  # 'stock_data', 'stock_analysis', 'general', 'clarification'
+            'request_type': request_type,  
             'timestamp': datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         }
         
