@@ -49,12 +49,17 @@ class LLMStockChatbot:
         self.evaluator = StockDataEvaluator()
         self.web_scraping_validator = WebScrapingValidator()
         
+        # Third layer: Context management system
+        self.conversation_context = []  # Store up to 15 input/output pairs
+        self.max_context_length = 15
+        
         # Configuration loaded - all symbol extraction and mapping now handled by LLM
         
         print(f"{self.name} initialized!")
         print("I use an LLM to understand your natural language requests!")
         print("I can handle stock data AND answer general questions!")
         print("Second layer evaluation features are now active!")
+        print("Third layer context management is now active!")
         print("I'll stay active until you say goodbye!")
     
     def _create_directory_structure(self):
@@ -76,7 +81,107 @@ class LLMStockChatbot:
         
         print(f" Data directories ready in {self.data_dir}")
     
-    def _call_llm(self, prompt, system_prompt=None):
+    def _add_to_context(self, user_input, bot_response, request_type=None):
+        """Add an input/output pair to the conversation context."""
+        context_entry = {
+            'user_input': user_input,
+            'bot_response': bot_response,
+            'request_type': request_type,  # 'stock_data', 'stock_analysis', 'general', 'clarification'
+            'timestamp': datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        }
+        
+        self.conversation_context.append(context_entry)
+        
+        # Keep only the last max_context_length entries
+        if len(self.conversation_context) > self.max_context_length:
+            self.conversation_context.pop(0)
+    
+    def _get_context_for_llm(self):
+        """Get formatted context for LLM prompts."""
+        if not self.conversation_context:
+            return ""
+        
+        context_text = "\n\nCONVERSATION CONTEXT (Previous 15 interactions):\n"
+        for i, entry in enumerate(self.conversation_context, 1):
+            context_text += f"{i}. User: {entry['user_input']}\n"
+            context_text += f"   Bot: {entry['bot_response'][:200]}{'...' if len(entry['bot_response']) > 200 else ''}\n"
+            if entry.get('request_type'):
+                context_text += f"   Type: {entry['request_type']}\n"
+            context_text += "\n"
+        
+        return context_text
+    
+    def _is_clarification_request(self, user_input):
+        """Check if the current input is a clarification to a previous request."""
+        clarification_indicators = [
+            'what do you mean', 'clarify', 'specify', 'elaborate', 'explain',
+            'daily', 'weekly', 'monthly', 'yearly', 'from', 'to', 'and',
+            'opening', 'closing', 'both', 'ipo', 'since', 'last year', 'this year'
+        ]
+        
+        user_input_lower = user_input.lower()
+        
+        # If the input is very short and contains clarification indicators
+        if len(user_input.split()) <= 3 and any(indicator in user_input_lower for indicator in clarification_indicators):
+            return True
+        
+        # If the input contains frequency terms that might be clarifying
+        frequency_terms = ['daily', 'weekly', 'monthly', 'yearly', 'minute', 'hourly']
+        if any(term in user_input_lower for term in frequency_terms):
+            return True
+        
+        # If the input contains date/time terms that might be clarifying
+        date_terms = ['from', 'to', 'and', 'last year', 'this year', 'ipo', 'since']
+        if any(term in user_input_lower for term in date_terms):
+            return True
+        
+        return False
+    
+    def _handle_contextual_request(self, user_input):
+        """Handle requests that build upon previous context."""
+        if not self.conversation_context:
+            return None
+        
+        # Check if this is a clarification to the most recent request
+        last_entry = self.conversation_context[-1]
+        
+        # If the last request was asking for clarification, this might be the answer
+        if last_entry.get('request_type') == 'clarification':
+            return self._combine_context_with_request(user_input, last_entry)
+        
+        # If this looks like a clarification request, try to combine with previous incomplete request
+        if self._is_clarification_request(user_input):
+            # Look for the most recent incomplete stock data request that asked for clarification
+            for entry in reversed(self.conversation_context):
+                if entry.get('request_type') in ['stock_data', 'clarification']:
+                    bot_response = entry.get('bot_response', '').lower()
+                    if 'clarification' in bot_response or 'need' in bot_response or 'specify' in bot_response:
+                        return self._combine_context_with_request(user_input, entry)
+        
+        # Check if this is a very short response that might be clarifying a previous request
+        if len(user_input.split()) <= 2 and self.conversation_context:
+            # Look for recent clarification requests
+            for entry in reversed(self.conversation_context[-3:]):  # Check last 3 entries
+                if entry.get('request_type') == 'clarification':
+                    return self._combine_context_with_request(user_input, entry)
+        
+        return None
+    
+    def _combine_context_with_request(self, current_input, previous_entry):
+        """Combine current input with previous context to form a complete request."""
+        previous_input = previous_entry['user_input']
+        
+        # Create a combined request for LLM processing
+        combined_request = f"{previous_input} {current_input}"
+        
+        return {
+            'combined_request': combined_request,
+            'original_previous': previous_input,
+            'original_current': current_input,
+            'context_used': True
+        }
+
+    def _call_llm(self, prompt, system_prompt=None, include_context=True):
         """Call the LLM to process natural language."""
         try:
             headers = {
@@ -87,7 +192,14 @@ class LLMStockChatbot:
             messages = []
             if system_prompt:
                 messages.append({"role": "system", "content": system_prompt})
-            messages.append({"role": "user", "content": prompt})
+            
+            # Add context to the prompt if requested and context exists
+            full_prompt = prompt
+            if include_context and self.conversation_context:
+                context_text = self._get_context_for_llm()
+                full_prompt = prompt + context_text
+            
+            messages.append({"role": "user", "content": full_prompt})
             
             data = {
                 "model": self.model,
@@ -117,6 +229,11 @@ class LLMStockChatbot:
         system_prompt = f"""You are a stock data parsing assistant. Parse the user's natural language request and return a JSON response with the following structure:
 
 IMPORTANT: Today's date is {current_date} (Year: {current_year})
+
+CONTEXT AWARENESS: If the user's request seems incomplete or refers to a previous clarification, use the conversation context to understand what they're trying to clarify. For example:
+- If previous request asked for clarification about frequency and user says "daily", combine with previous request
+- If previous request asked for date range and user says "from IPO", combine with previous request
+- Always try to form a complete request using both current input and relevant context
 
 {{
     "symbols": ["AAPL", "MSFT"],
@@ -511,7 +628,10 @@ Return ONLY the period code (e.g., "1mo", "1y", etc.):"""
         
         # Check if clarification is needed
         if parsed_request.get('clarification_needed'):
-            print(f" {parsed_request.get('clarification_message', 'I need clarification.')}")
+            clarification_message = parsed_request.get('clarification_message', 'I need clarification.')
+            print(f" {clarification_message}")
+            # Add clarification to context
+            self._add_to_context(user_input, clarification_message, 'clarification')
             return False
         
         # Extract information from parsed request
@@ -862,17 +982,31 @@ Provide a clear, helpful response:"""
                     print(" Goodbye! Thanks for using the LLM Stock Data Chatbot!")
                     break
                 
+                # Third layer: Check for contextual requests first
+                contextual_result = self._handle_contextual_request(user_input)
+                processed_input = user_input
+                context_used = False
+                
+                if contextual_result:
+                    processed_input = contextual_result['combined_request']
+                    context_used = contextual_result['context_used']
+                    print(f"\n[Context] Combining with previous request: {contextual_result['original_previous']}")
+                
                 # Check if it's a stock data request
-                if self._is_stock_data_request(user_input):
-                    self._process_stock_request_with_llm(user_input)
-                elif self._is_stock_analysis_request(user_input):
+                if self._is_stock_data_request(processed_input):
+                    success = self._process_stock_request_with_llm(processed_input)
+                    response = "Stock data processed successfully" if success else "Stock data processing failed"
+                    self._add_to_context(user_input, response, 'stock_data')
+                elif self._is_stock_analysis_request(processed_input):
                     # Handle stock analysis request
-                    response = self._handle_stock_analysis_request(user_input)
+                    response = self._handle_stock_analysis_request(processed_input)
                     print(f"\n{response}")
+                    self._add_to_context(user_input, response, 'stock_analysis')
                 else:
                     # Generate a general chat response
-                    response = self._generate_chat_response(user_input)
+                    response = self._generate_chat_response(processed_input)
                     print(f"\n{response}")
+                    self._add_to_context(user_input, response, 'general')
                 
                 print()  # Add blank line for readability
                 

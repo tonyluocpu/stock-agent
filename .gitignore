@@ -1,4 +1,3 @@
-# Sensitive Information
 api_config.py
 .env
 *.env
@@ -7,15 +6,10 @@ agent_instruction_first_layer.txt
 agent_instruction_second_layer.txt
 agent_instruction_third_layer.txt
 test_agent.txt
-
-
-# Data Files
 data/
 *.csv
 *.xlsx
 *.json
-
-# Python
 __pycache__/
 *.py[cod]
 *$py.class
@@ -37,22 +31,16 @@ wheels/
 .installed.cfg
 *.egg
 MANIFEST
-
-# Virtual Environment
 venv/
 env/
 ENV/
 env.bak/
 venv.bak/
-
-# IDE
 .vscode/
 .idea/
 *.swp
 *.swo
 *~
-
-# OS
 .DS_Store
 .DS_Store?
 ._*
@@ -60,28 +48,16 @@ venv.bak/
 .Trashes
 ehthumbs.db
 Thumbs.db
-
-# Logs
 *.log
 logs/
-
-# Temporary files
 *.tmp
 *.temp
 temp/
 tmp/
-
-# Jupyter Notebook
 .ipynb_checkpoints
-
-# pytest
 .pytest_cache/
-
-# Coverage reports
 htmlcov/
 .coverage
 .coverage.*
 coverage.xml
-
-# Test directory
 tests/
