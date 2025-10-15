@@ -5,7 +5,10 @@ config_local.py
 agent_instruction_first_layer.txt
 agent_instruction_second_layer.txt
 agent_instruction_third_layer.txt
+agent_instruction_fourth_layer.txt
+agent_instruction_fifth_layer.txt
 test_agent.txt
+tests
 data/
 *.csv
 *.xlsx

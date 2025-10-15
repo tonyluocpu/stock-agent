@@ -52,6 +52,7 @@ class LLMStockChatbot:
         print("I can handle stock data AND answer general questions!")
         print("Second layer evaluation features are now active!")
         print("Third layer context management is now active!")
+        print("Fourth layer financial analysis is now active!")
         print("I'll stay active until you say goodbye!")
     
     def _create_directory_structure(self):
@@ -345,6 +346,7 @@ Determine which category this falls into:
 1. GENERAL_QUESTION - Non-stock related questions (weather, date, general knowledge, personal questions)
 2. STOCK_ANALYSIS - User wants to know about current stock performance, analysis, or insights
 3. STOCK_DATA_DOWNLOAD - User wants to download historical stock data files
+4. FINANCIAL_ANALYSIS - User wants comprehensive financial statement analysis, investment analysis, or fundamental analysis
 
 Examples:
 - "what date is it today" → GENERAL_QUESTION
@@ -353,8 +355,12 @@ Examples:
 - "how is tesla performing" → STOCK_ANALYSIS
 - "apple weekly data 2019-2021" → STOCK_DATA_DOWNLOAD
 - "download microsoft daily data" → STOCK_DATA_DOWNLOAD
+- "stock analysis of nvidia" → FINANCIAL_ANALYSIS
+- "should i buy tesla" → FINANCIAL_ANALYSIS
+- "important metrics of aapl" → FINANCIAL_ANALYSIS
+- "financial analysis of microsoft" → FINANCIAL_ANALYSIS
 
-Respond with ONLY one of: GENERAL_QUESTION, STOCK_ANALYSIS, or STOCK_DATA_DOWNLOAD"""
+Respond with ONLY one of: GENERAL_QUESTION, STOCK_ANALYSIS, STOCK_DATA_DOWNLOAD, or FINANCIAL_ANALYSIS"""
 
         intent = self._call_llm(intent_prompt)
         
@@ -362,6 +368,64 @@ Respond with ONLY one of: GENERAL_QUESTION, STOCK_ANALYSIS, or STOCK_DATA_DOWNLO
             return True
         else:
             return False
+    
+    def _is_financial_analysis_request(self, user_input):
+        """Use LLM to intelligently detect if the user input is a financial analysis request."""
+        intent_prompt = f"""Analyze this user input and determine their intent:
+
+User Input: "{user_input}"
+
+Determine which category this falls into:
+1. GENERAL_QUESTION - Non-stock related questions (weather, date, general knowledge, personal questions)
+2. STOCK_ANALYSIS - User wants to know about current stock performance, analysis, or insights
+3. STOCK_DATA_DOWNLOAD - User wants to download historical stock data files
+4. FINANCIAL_ANALYSIS - User wants comprehensive financial statement analysis, investment analysis, or fundamental analysis
+
+Examples:
+- "what date is it today" → GENERAL_QUESTION
+- "do you like cheese" → GENERAL_QUESTION  
+- "what does apple stock look like" → STOCK_ANALYSIS
+- "how is tesla performing" → STOCK_ANALYSIS
+- "apple weekly data 2019-2021" → STOCK_DATA_DOWNLOAD
+- "download microsoft daily data" → STOCK_DATA_DOWNLOAD
+- "stock analysis of nvidia" → FINANCIAL_ANALYSIS
+- "should i buy tesla" → FINANCIAL_ANALYSIS
+- "important metrics of aapl" → FINANCIAL_ANALYSIS
+- "financial analysis of microsoft" → FINANCIAL_ANALYSIS
+
+Respond with ONLY one of: GENERAL_QUESTION, STOCK_ANALYSIS, STOCK_DATA_DOWNLOAD, or FINANCIAL_ANALYSIS"""
+
+        intent = self._call_llm(intent_prompt)
+        
+        if intent and "FINANCIAL_ANALYSIS" in intent.upper():
+            return True
+        else:
+            return False
+    
+    def _handle_financial_analysis_request(self, user_input):
+        """Handle 4th layer financial analysis requests."""
+        try:
+            from financial_analysis_module import FourthLayerFinancialAnalysis
+            
+            # Extract symbol from user input
+            symbols = self._extract_symbols_with_llm(user_input)
+            if not symbols:
+                return "ERROR: Could not identify any stock symbols for financial analysis."
+            
+            symbol = symbols[0]  # Use first symbol if multiple provided
+            
+            # Initialize financial analyzer
+            analyzer = FourthLayerFinancialAnalysis()
+            
+            # Perform comprehensive financial analysis
+            analysis_result = analyzer.analyze_stock_financials(symbol)
+            
+            return analysis_result
+            
+        except ImportError:
+            return "ERROR: Financial analysis module not found. Please ensure financial_analysis_module.py exists."
+        except Exception as e:
+            return f"ERROR: Financial analysis failed: {str(e)}"
     
     def _extract_symbols_with_llm(self, user_input):
         """Use LLM to extract stock symbols from natural language."""
@@ -951,10 +1015,14 @@ Provide a clear, helpful response:"""
         print("   - \"Apple and Microsoft weekly 2019-2021\"")
         print("   - \"magnificent 7 last year daily data\"")
         print("   - \"TSLA from 2020 to 2023 monthly\"")
-        print(" **Stock Analysis (NEW!):**")
+        print(" **Stock Analysis:**")
         print("   - \"What does Apple stock look like today?\"")
         print("   - \"How is Tesla performing?\"")
         print("   - \"Compare Apple and Microsoft\"")
+        print(" **Financial Analysis (NEW!):**")
+        print("   - \"Stock analysis of NVIDIA\"")
+        print("   - \"Should I buy Tesla?\"")
+        print("   - \"Important metrics of AAPL\"")
         print(" **General Questions:**")
         print("   - \"What is the weather like today?\"")
         print("   - \"What is the 13th amendment?\"")
@@ -984,8 +1052,13 @@ Provide a clear, helpful response:"""
                     context_used = contextual_result['context_used']
                     print(f"\n[Context] Combining with previous request: {contextual_result['original_previous']}")
                 
-                # Check if it's a stock data request
-                if self._is_stock_data_request(processed_input):
+                # Check if it's a financial analysis request (4th layer)
+                if self._is_financial_analysis_request(processed_input):
+                    # Handle 4th layer financial analysis request
+                    response = self._handle_financial_analysis_request(processed_input)
+                    print(f"\n{response}")
+                    self._add_to_context(user_input, response, 'financial_analysis')
+                elif self._is_stock_data_request(processed_input):
                     success = self._process_stock_request_with_llm(processed_input)
                     response = "Stock data processed successfully" if success else "Stock data processing failed"
                     self._add_to_context(user_input, response, 'stock_data')
