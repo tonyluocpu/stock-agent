@@ -1,0 +1,38 @@
+1. Download Historical Stock Data
+Download daily, weekly, monthly, or yearly data
+Supports date ranges like "2020 to 2024" or "last year"
+Handles multiple stocks at once (e.g., "Apple and Microsoft")
+Saves data in organized CSV files
+Understands natural language requests
+2. Analyze Current Stock Performance
+Get current prices, market cap, P/E ratios
+Compare multiple stocks side-by-side
+View recent performance trends
+Analyze trading volume and volatility
+3. Deep Financial Analysis
+Analyzes 4 years of financial statements
+Calculates 18+ metrics (profit margins, debt ratios, cash flow, growth rates)
+Identifies financial health issues automatically
+Provides investment ratings (strong/moderate/weak potential)
+Generates reports with warnings and recommendations
+4. Find Undervalued Stocks
+Screens entire sectors (Technology, Healthcare, Financials, etc.)
+Applies 6 investment criteria (market cap, P/B, P/E, debt, profit stability)
+Calculates intrinsic value using multiple methods
+Searches for catalysts (partnerships, management changes, industry trends)
+Returns a ranked list of investment opportunities
+5. Data Quality Validation
+Checks data accuracy and completeness
+Validates price logic and trading days
+Cross-checks with external sources
+Flags potential issues before use
+6. Conversational Interface
+Understands natural language questions
+Maintains conversation context (remembers previous questions)
+Handles clarifications and follow-ups
+Answers general questions about stocks and investing
+7. Smart Data Management
+Caches frequently used data for faster responses
+Organizes files automatically
+Handles company name variations and typos
+Supports both API and local data sources

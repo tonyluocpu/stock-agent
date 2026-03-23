@@ -35,6 +35,8 @@ wheels/
 *.egg
 MANIFEST
 venv/
+.venv/
+.venv*/
 env/
 ENV/
 env.bak/

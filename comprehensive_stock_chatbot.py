@@ -15,10 +15,29 @@ from typing import Dict
 # Import configuration
 try:
     from config import *
-    from api_config import API_KEY, API_URL, MODEL
+    # Try free LLM config first, fallback to paid API config
+    try:
+        from api_config_free import LLM_BACKEND, LLM_MODEL, LLM_TEMPERATURE, LLM_MAX_TOKENS
+        USE_FREE_LLM = True
+        try:
+            from api_config import API_KEY, API_URL, MODEL
+            HAS_PAID_FALLBACK = True
+        except ImportError:
+            HAS_PAID_FALLBACK = False
+    except ImportError:
+        USE_FREE_LLM = False
+        try:
+            from api_config import API_KEY, API_URL, MODEL
+            HAS_PAID_FALLBACK = True
+        except ImportError:
+            print("ERROR: No LLM configuration found.")
+            print("Please create either api_config_free.py (for free LLM) or api_config.py (for OpenRouter API)")
+            sys.exit(1)
+    
     from evaluation_module import StockDataEvaluator, WebScrapingValidator
-except ImportError:
-    print("ERROR: Configuration files not found. Please ensure config.py and api_config.py exist.")
+except ImportError as e:
+    print(f"ERROR: Configuration files not found: {e}")
+    print("Please ensure config.py and either api_config_free.py or api_config.py exist.")
     sys.exit(1)
 
 class LLMStockChatbot:
@@ -31,11 +50,60 @@ class LLMStockChatbot:
         self.name = "LLM Stock Data Chatbot"
         self.data_dir = DATA_DIRECTORY
         self._create_directory_structure()
+        self.has_paid_fallback = HAS_PAID_FALLBACK if 'HAS_PAID_FALLBACK' in globals() else False
+        self.api_key = None
+        self.api_url = None
+        self.model = None
         
-        # LLM Configuration from config files
-        self.api_key = API_KEY
-        self.api_url = API_URL
-        self.model = MODEL
+        # LLM Configuration - support both free and paid backends
+        self.use_free_llm = USE_FREE_LLM if 'USE_FREE_LLM' in globals() else False
+        
+        if self.use_free_llm:
+            # Use free LLM client
+            try:
+                from llm_client_free import FreeLLMClient
+                self.llm_client = FreeLLMClient(
+                    backend=LLM_BACKEND,
+                    model_name=LLM_MODEL
+                )
+                self.temperature = LLM_TEMPERATURE
+                self.max_tokens = LLM_MAX_TOKENS
+                print(f"✅ Using FREE LLM backend: {LLM_BACKEND}")
+                if LLM_MODEL:
+                    print(f"   Model: {LLM_MODEL}")
+                if self.has_paid_fallback:
+                    self.api_key = API_KEY
+                    self.api_url = API_URL
+                    self.model = MODEL
+                    print("   Paid fallback available: OpenRouter")
+                if (
+                    self.use_free_llm and
+                    LLM_BACKEND.lower() == "huggingface" and
+                    not os.getenv("HF_TOKEN") and
+                    self.has_paid_fallback
+                ):
+                    print("   HF_TOKEN not set; using OpenRouter to avoid failed Hugging Face calls.")
+                    self.use_free_llm = False
+            except ImportError:
+                print("ERROR: llm_client_free.py not found. Falling back to OpenRouter API.")
+                self.use_free_llm = False
+                try:
+                    self.api_key = API_KEY
+                    self.api_url = API_URL
+                    self.model = MODEL
+                except:
+                    print("ERROR: No LLM backend available!")
+                    sys.exit(1)
+        else:
+            # Use OpenRouter API (paid)
+            try:
+                self.api_key = API_KEY
+                self.api_url = API_URL
+                self.model = MODEL
+                print("✅ Using OpenRouter API (paid)")
+            except:
+                print("ERROR: OpenRouter API configuration not found!")
+                sys.exit(1)
         
         # Initialize evaluation module for second layer features
         self.evaluator = StockDataEvaluator()
@@ -54,6 +122,36 @@ class LLMStockChatbot:
         print("Third layer context management is now active!")
         print("Fourth layer financial analysis is now active!")
         print("I'll stay active until you say goodbye!")
+
+    def _call_paid_llm(self, full_prompt, system_prompt=None):
+        """Call the OpenRouter API directly."""
+        try:
+            headers = {
+                "Authorization": f"Bearer {self.api_key}",
+                "Content-Type": "application/json"
+            }
+
+            messages = []
+            if system_prompt:
+                messages.append({"role": "system", "content": system_prompt})
+
+            messages.append({"role": "user", "content": full_prompt})
+
+            data = {
+                "model": self.model,
+                "messages": messages,
+                "temperature": 0.1,
+                "max_tokens": 1000
+            }
+
+            response = requests.post(self.api_url, headers=headers, json=data, timeout=30)
+            response.raise_for_status()
+
+            result = response.json()
+            return result['choices'][0]['message']['content']
+        except Exception as e:
+            print(f"ERROR: LLM Error: {e}")
+            return None
     
     def _create_directory_structure(self):
         """Create the organized directory structure for data storage."""
@@ -176,40 +274,36 @@ class LLMStockChatbot:
 
     def _call_llm(self, prompt, system_prompt=None, include_context=True):
         """Call the LLM to process natural language."""
-        try:
-            headers = {
-                "Authorization": f"Bearer {self.api_key}",
-                "Content-Type": "application/json"
-            }
-            
-            messages = []
-            if system_prompt:
-                messages.append({"role": "system", "content": system_prompt})
-            
-            # Add context to the prompt if requested and context exists
-            full_prompt = prompt
-            if include_context and self.conversation_context:
-                context_text = self._get_context_for_llm()
-                full_prompt = prompt + context_text
-            
-            messages.append({"role": "user", "content": full_prompt})
-            
-            data = {
-                "model": self.model,
-                "messages": messages,
-                "temperature": 0.1,
-                "max_tokens": 1000
-            }
-            
-            response = requests.post(self.api_url, headers=headers, json=data, timeout=30)
-            response.raise_for_status()
-            
-            result = response.json()
-            return result['choices'][0]['message']['content']
-            
-        except Exception as e:
-            print(f"ERROR: LLM Error: {e}")
-            return None
+        # Add context to the prompt if requested and context exists
+        full_prompt = prompt
+        if include_context and self.conversation_context:
+            context_text = self._get_context_for_llm()
+            full_prompt = prompt + context_text
+        
+        if self.use_free_llm:
+            # Use free LLM client
+            try:
+                response = self.llm_client.call(
+                    prompt=full_prompt,
+                    system_prompt=system_prompt,
+                    temperature=self.temperature,
+                    max_tokens=self.max_tokens
+                )
+                if response:
+                    return response
+                if self.has_paid_fallback and self.api_key:
+                    print("WARNING: Free LLM backend unavailable. Falling back to OpenRouter.")
+                    return self._call_paid_llm(full_prompt, system_prompt)
+                return None
+            except Exception as e:
+                print(f"ERROR: Free LLM Error: {e}")
+                if self.has_paid_fallback and self.api_key:
+                    print("WARNING: Free LLM backend failed. Falling back to OpenRouter.")
+                    return self._call_paid_llm(full_prompt, system_prompt)
+                return None
+        else:
+            # Use OpenRouter API (paid)
+            return self._call_paid_llm(full_prompt, system_prompt)
     
     def _parse_request_with_llm(self, user_input):
         """Use LLM to parse the user request into structured data."""
@@ -553,7 +647,7 @@ Return ONLY the period code (e.g., "1mo", "1y", etc.):"""
                 print(f"Note: Note: {data_frequency} data is only available for the last 30 days")
             return None
     
-    def _save_data(self, symbol, data, data_type, time_frame, data_frequency):
+    def _save_data(self, symbol, data, data_type, time_frame, data_frequency, interactive=True):
         """Save data with essential information."""
         if data is None:
             return False, None
@@ -597,15 +691,18 @@ Return ONLY the period code (e.g., "1mo", "1y", etc.):"""
         # Check for existing file
         if file_path.exists():
             print(f"WARNING:  File already exists: {file_path}")
-            while True:
-                response = input("Replace it? (y/n): ").lower().strip()
-                if response in ['y', 'yes']:
-                    break
-                elif response in ['n', 'no']:
-                    print("ERROR: Skipping this file.")
-                    return False, None
-                else:
-                    print("Please enter 'y' for yes or 'n' for no.")
+            if not interactive:
+                print("Non-interactive mode: replacing existing file automatically.")
+            else:
+                while True:
+                    response = input("Replace it? (y/n): ").lower().strip()
+                    if response in ['y', 'yes']:
+                        break
+                    elif response in ['n', 'no']:
+                        print("ERROR: Skipping this file.")
+                        return False, None
+                    else:
+                        print("Please enter 'y' for yes or 'n' for no.")
         
         # Save data
         save_data = save_data.reset_index()
@@ -629,13 +726,19 @@ Return ONLY the period code (e.g., "1mo", "1y", etc.):"""
             f.write(report)
         print(f"Evaluation report saved to: {report_path}")
         
-        # Run web-scraping validation if initial evaluation passed or user agreed to proceed
-        if evaluation_results['overall_status'] == 'passed':
+        # Web-scraping validation may require manual decisions, so skip it in one-shot mode.
+        if not interactive:
+            print("Non-interactive mode: skipping web-scraping validation.")
+        elif evaluation_results['overall_status'] == 'passed':
             print("\nInitial evaluation passed. Running web-scraping validation...")
             self._run_web_scraping_validation(symbol, str(file_path), time_frame, data_frequency)
         elif evaluation_results['overall_status'] == 'issues_found':
             print("\nIssues found in initial evaluation. Checking if user wants to proceed with web-scraping validation...")
-            user_choice = input("Do you want to proceed with web-scraping validation despite the issues? (y/n): ").lower().strip()
+            user_choice = 'y'
+            if interactive:
+                user_choice = input("Do you want to proceed with web-scraping validation despite the issues? (y/n): ").lower().strip()
+            else:
+                print("Non-interactive mode: proceeding with web-scraping validation automatically.")
             if user_choice in ['y', 'yes']:
                 self._run_web_scraping_validation(symbol, str(file_path), time_frame, data_frequency)
             else:
@@ -670,7 +773,7 @@ Return ONLY the period code (e.g., "1mo", "1y", etc.):"""
             print("Continuing with original data...")
             return True
 
-    def _process_stock_request_with_llm(self, user_input):
+    def _process_stock_request_with_llm(self, user_input, interactive=True):
         """Process stock request using LLM for natural language understanding."""
         print(f"\nProcessing with LLM: '{user_input}'")
         print("=" * 60)
@@ -712,15 +815,18 @@ Return ONLY the period code (e.g., "1mo", "1y", etc.):"""
             print(f"   - Multiple Files: Yes")
         
         # Ask for confirmation
-        while True:
-            response = input("\nProceed with this request? (y/n): ").lower().strip()
-            if response in ['y', 'yes']:
-                break
-            elif response in ['n', 'no']:
-                print("ERROR: Request cancelled.")
-                return False
-            else:
-                print("Please enter 'y' for yes or 'n' for no.")
+        if not interactive:
+            print("Non-interactive mode: proceeding automatically.")
+        else:
+            while True:
+                response = input("\nProceed with this request? (y/n): ").lower().strip()
+                if response in ['y', 'yes']:
+                    break
+                elif response in ['n', 'no']:
+                    print("ERROR: Request cancelled.")
+                    return False
+                else:
+                    print("Please enter 'y' for yes or 'n' for no.")
         
         # Process based on whether it's multiple files or single file
         success_count = 0
@@ -777,16 +883,16 @@ Return ONLY the period code (e.g., "1mo", "1y", etc.):"""
                         
                         # Save data
                         if data_type == "opening":
-                            success, file_path = self._save_data(symbol, data, "opening", year_time_frame, data_frequency)
+                            success, file_path = self._save_data(symbol, data, "opening", year_time_frame, data_frequency, interactive=interactive)
                             if success:
                                 pass
                         elif data_type == "closing":
-                            success, file_path = self._save_data(symbol, data, "closing", year_time_frame, data_frequency)
+                            success, file_path = self._save_data(symbol, data, "closing", year_time_frame, data_frequency, interactive=interactive)
                             if success:
                                 pass
                         else:  # both
-                            success1, file_path1 = self._save_data(symbol, data, "opening", year_time_frame, data_frequency)
-                            success2, file_path2 = self._save_data(symbol, data, "closing", year_time_frame, data_frequency)
+                            success1, file_path1 = self._save_data(symbol, data, "opening", year_time_frame, data_frequency, interactive=interactive)
+                            success2, file_path2 = self._save_data(symbol, data, "closing", year_time_frame, data_frequency, interactive=interactive)
                             success = success1 and success2
                         
                         if success:
@@ -807,12 +913,12 @@ Return ONLY the period code (e.g., "1mo", "1y", etc.):"""
                     
                     # Save data
                     if data_type == "opening":
-                        success, file_path = self._save_data(symbol, data, "opening", time_frame, data_frequency)
+                        success, file_path = self._save_data(symbol, data, "opening", time_frame, data_frequency, interactive=interactive)
                     elif data_type == "closing":
-                        success, file_path = self._save_data(symbol, data, "closing", time_frame, data_frequency)
+                        success, file_path = self._save_data(symbol, data, "closing", time_frame, data_frequency, interactive=interactive)
                     else:  # both
-                        success1, file_path1 = self._save_data(symbol, data, "opening", time_frame, data_frequency)
-                        success2, file_path2 = self._save_data(symbol, data, "closing", time_frame, data_frequency)
+                        success1, file_path1 = self._save_data(symbol, data, "opening", time_frame, data_frequency, interactive=interactive)
+                        success2, file_path2 = self._save_data(symbol, data, "closing", time_frame, data_frequency, interactive=interactive)
                         success = success1 and success2
                     
                     if success:
@@ -1096,7 +1202,7 @@ def main():
     
     if args.request:
         if chatbot._is_stock_data_request(args.request):
-            chatbot._process_stock_request_with_llm(args.request)
+            chatbot._process_stock_request_with_llm(args.request, interactive=False)
         else:
             print("ERROR: That doesn't appear to be a stock data request.")
             print("Note: Try something like: 'Apple and Microsoft weekly 2019-2021'")

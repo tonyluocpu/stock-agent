@@ -19,6 +19,10 @@ DEFAULT_MODEL = "anthropic/claude-3.5-sonnet"
 # Data Configuration
 DATA_DIRECTORY = Path("data")
 
+# Database Configuration (Phase 2 & 3)
+ENABLE_CSV_WRITES = os.getenv('ENABLE_CSV_WRITES', 'true').lower() == 'true'  # Phase 2: Keep CSV writes, Phase 3: Can disable
+USE_DATABASE_READS = os.getenv('USE_DATABASE_READS', 'true').lower() == 'true'  # Phase 2: Read from database
+
 # File naming configuration
 FILE_NAMING_FORMATS = {
     'single_year': '{symbol}_{frequency}_{year}.csv',

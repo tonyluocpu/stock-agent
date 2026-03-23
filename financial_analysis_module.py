@@ -117,6 +117,31 @@ class FourthLayerFinancialAnalysis:
             print("💾 Saving data to CSV...")
             csv_path = self._save_to_csv(symbol, yearly_metrics)
             
+            # Phase 2: Also store basic metrics in database (if available)
+            try:
+                from database import get_database
+                from config import USE_DATABASE_READS
+                
+                if USE_DATABASE_READS and yearly_metrics:
+                    db = get_database()
+                    # Get the most recent year's metrics
+                    latest_year = max(yearly_metrics.keys())
+                    latest_metrics = yearly_metrics[latest_year]
+                    
+                    # Update stock info with latest financial metrics if available
+                    # Note: Financial statements themselves aren't stored, but we can cache key metrics
+                    cache_key = f"{symbol}_financial_metrics"
+                    db.set_cache(cache_key, {
+                        'latest_year': latest_year.strftime('%Y'),
+                        'gross_margin': latest_metrics.get('gross_margin'),
+                        'net_margin': latest_metrics.get('net_margin'),
+                        'roa': latest_metrics.get('return_on_assets'),
+                        'current_ratio': latest_metrics.get('current_ratio'),
+                        'calculated_at': datetime.now().isoformat()
+                    }, expires_in_hours=168)  # Cache for 1 week
+            except:
+                pass  # Continue if database storage fails
+            
             # Step 4: Generate natural language analysis
             print("📝 Generating analysis insights...")
             analysis_summary = self._generate_natural_language_analysis(symbol, yearly_metrics)
