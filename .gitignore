@@ -66,3 +66,9 @@ htmlcov/
 .coverage.*
 coverage.xml
 tests/
+
+# Non-runtime repo clutter kept local only
+test_*.py
+test_frontend_openrouter.html
+TEST_RESULTS*.md
+local_only/
